@@ -1,5 +1,4 @@
 pragma solidity ^0.4.23;
-
 import "./utils/MintableERC20.sol";
 
 contract PredictionMarket {
@@ -21,7 +20,7 @@ contract PredictionMarket {
     }
 
     mapping(bytes32 => BinaryOption) public binaryOptions;
-    mapping(address => mapping(bytes32 => Prediction)) public predictions;
+    mapping(address => mapping(bytes32 => Prediction)) public predictions; // maps address to predictions per Binary Option
 
     enum Outcome {
         Unresolved,
@@ -36,32 +35,30 @@ contract PredictionMarket {
         owner = msg.sender;
     }
 
-    function getOutcomeBalance(bytes32 identifier, Outcome outcome)
-        public
-        view
-        isValidOutcome(outcome)
-        returns (uint256 balance)
+    function getOutcomeBalance(bytes32 identifier, Outcome outcome) public view isValidOutcome(outcome) 
+    returns (uint256 balance)
     {
         return binaryOptions[identifier].balances[uint8(outcome)];
     }
 
-    function getOutcomePrice(BinaryOption market) private view returns (uint price){
-        
-    }
-
-    function getTotalBalance(bytes32 identifier)
-        public
-        view
-        returns (uint256 totalBalance)
+    function getTotalBalance(bytes32 identifier) public view 
+    returns (uint256 totalBalance)
     {
         return binaryOptions[identifier].totalBalance;
     }
 
-    function addBinaryOption(
-        bytes32 identifier,
-        string description,
-        uint256 durationInBlocks
-    ) public isOwner returns (bool success) {
+    function getOutcomePrice(bytes32 identifier, Outcome outcome) public view 
+    returns (uint outcomePrice)
+    {
+        uint256 marketSize = getTotalBalance(identifier);
+        uint256 outcomeSize = getOutcomeBalance(identifier, outcome);
+        outcomePrice = outcomeSize / (marketSize); //change to use SafeMath.sol or add underflow/overflow checks
+        return outcomePrice;
+    }
+
+    function addBinaryOption(bytes32 identifier, string description, uint256 durationInBlocks) public isOwner 
+    returns (bool success) 
+    {
         // Don't allow options with no expiry
         require(durationInBlocks > 0);
 
@@ -75,6 +72,9 @@ contract PredictionMarket {
         option.outcome = Outcome.Unresolved;
 
         binaryOptions[identifier] = option;
+        // tokens.push(new MintableToken(0, 18, toString(option.outcome))) ;
+        // tokens.push(new MintableToken(0, 18, toString(option.outcome)));
+        //@dev create a token for affarmative and negative outcomes.
 
         return true;
     }
@@ -188,6 +188,23 @@ contract PredictionMarket {
         msg.sender.transfer(payoutAmount);
 
         return true;
+    }
+
+    function toString(bytes32 b) internal pure 
+    returns (string) {
+        // Convert a null-terminated bytes32 to a string.
+
+        uint256 length = 0;
+        while (length < 32 && b[length] != 0) {
+            length += 1;
+        }
+
+        bytes memory bytesString = new bytes(length);
+        for (uint256 j = 0; j < length; j++) {
+            bytesString[j] = b[j];
+        }
+
+        return string(bytesString);
     }
 
     function kill() public isOwner {
